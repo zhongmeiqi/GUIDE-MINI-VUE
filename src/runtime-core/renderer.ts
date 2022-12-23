@@ -1,7 +1,9 @@
 import { effect } from "../reactivity/effect";
 import { ShapeFlags } from "../shared/ShapeFlags";
 import { createComponentInstance, setupComponent } from "./component";
+import { shouldUpdateComponent } from "./componentUpdateUtils";
 import { createAppAPI } from "./createApp";
+import { queueJobs } from "./scheduler";
 import { Fragment, Text } from "./vnode";
 
 export function createRenderer(options) {
@@ -31,54 +33,101 @@ export function createRenderer(options) {
         }
         break;
     }
-  }
-  function processText(n1, n2, container) {
-    const { children } = n2;
-    const textNode = (n2.el = document.createTextNode(children));
-    container.append(textNode);
-  }
-  function processFragment(n1, n2, container, parentComponent, anchor) {
-    mountChildren(n2, container, parentComponent, anchor);
-  }
 
-  function processComponent(n1, n2, container, parentComponent, anchor) {
-    mountComponent(n2.children, container, parentComponent, anchor);
-  }
-  function mountComponent(
-    initialVNode: any,
-    container,
-    parentComponent,
-    anchor
-  ) {
-    const instance = createComponentInstance(initialVNode, parentComponent);
+    function processText(n1, n2, container) {
+      const { children } = n2;
+      const textNode = (n2.el = document.createTextNode(children));
+      container.append(textNode);
+    }
+    function processFragment(n1, n2, container, parentComponent, anchor) {
+      mountChildren(n2, container, parentComponent, anchor);
+    }
 
-    setupComponent(instance);
-    setupRenderEffect(instance, initialVNode, container, anchor);
-  }
-  function setupRenderEffect(instance: any, initialVNode, container, anchor) {
-    effect(() => {
-      if (!instance.isMounted) {
-        console.log("init");
-        const { proxy } = instance;
-        const subTree = (instance.subTree = instance.render.call(proxy));
-        console.log(subTree);
-        // vnode=>patch
-        // vnode =>element => mountElement(挂载element)
-        patch(null, subTree, container, instance, anchor);
-        // element =>mount 所有element都处理完之后
-        initialVNode.el = subTree.el;
-        instance.isMounted = true;
+    function processComponent(n1, n2, container, parentComponent, anchor) {
+      if (!n1) {
+        mountComponent(n2.children, container, parentComponent, anchor);
       } else {
-        console.log("update");
-        const { proxy } = instance;
-        const subTree = instance.render.call(proxy);
-        const prevSubTree = instance.subTree;
-        instance.subTree = subTree;
-        console.log("current", subTree);
-        console.log("prev", prevSubTree);
-        patch(prevSubTree, subTree, container, instance, anchor);
+        updateComponent(n1, n2);
       }
-    });
+    }
+    function updateComponent(n1, n2) {
+      /* 
+      1、更新组件的数据 （props）
+      2、调用组件的render函数 (利用effect返回的render，再调用render执行更新逻辑)
+      3、更新前检测一下需不需要更新 （检测组件的props）
+      */
+      const instance = (n2.component = n1.component);
+      if (shouldUpdateComponent(n1, n2)) {
+        instance.next = n2;
+        instance.update();
+      } else {
+        n2.el = n1.el;
+        n2.vnode = n2;
+      }
+    }
+    function mountComponent(
+      initialVNode: any,
+      container,
+      parentComponent,
+      anchor
+    ) {
+      const instance = (initialVNode.component = createComponentInstance(
+        initialVNode,
+        parentComponent
+      ));
+
+      setupComponent(instance);
+      setupRenderEffect(instance, initialVNode, container, anchor);
+    }
+    function setupRenderEffect(instance: any, initialVNode, container, anchor) {
+      instance.update = effect(
+        () => {
+          if (!instance.isMounted) {
+            console.log("init");
+            const { proxy } = instance;
+            const subTree = (instance.subTree = instance.render.call(proxy));
+            console.log(subTree);
+            // vnode=>patch
+            // vnode =>element => mountElement(挂载element)
+            patch(null, subTree, container, instance, anchor);
+            // element =>mount 所有element都处理完之后
+            initialVNode.el = subTree.el;
+            instance.isMounted = true;
+          } else {
+            console.log("update");
+
+            // 需要一个 vnode
+            const { next, vnode } = instance;
+            if (next) {
+              next.el = vnode.el;
+              updateComponentPreRender(instance, next);
+            }
+
+            const { proxy } = instance;
+            const subTree = instance.render.call(proxy);
+            const prevSubTree = instance.subTree;
+            instance.subTree = subTree;
+            console.log("current", subTree);
+            console.log("prev", prevSubTree);
+            patch(prevSubTree, subTree, container, instance, anchor);
+          }
+        },
+        {
+          scheduler() {
+            console.log("update--scheduler");
+            queueJobs(instance.update);
+          },
+        }
+      );
+    }
+    return {
+      createApp: createAppAPI(render),
+    };
+  }
+  function updateComponentPreRender(instance, nextVNode) {
+    instance.vnode = nextVNode;
+    instance.next = null;
+    instance.props = nextVNode.props;
   }
 
   function processElement(n1, n2, container: any, parentComponent, anchor) {
@@ -350,47 +399,45 @@ export function createRenderer(options) {
       patch(null, v, container, parentComponent, anchor);
     });
   }
-  return {
-    createApp: createAppAPI(render),
-  };
-}
-function getSequence(arr) {
-  const p = arr.slice();
-  const result = [0];
-  let i, j, u, v, c;
-  const len = arr.length;
-  for (i = 0; i < len; i++) {
-    const arrI = arr[i];
-    if (arrI !== 0) {
-      j = result[result.length - 1];
-      if (arr[j] < arrI) {
-        p[i] = j;
-        result.push(i);
-        continue;
-      }
-      u = 0;
-      v = result.length - 1;
-      while (u < v) {
-        c = (u + v) >> 1;
-        if (arr[result[c]] < arrI) {
-          u = c + 1;
-        } else {
-          v = c;
+
+  function getSequence(arr) {
+    const p = arr.slice();
+    const result = [0];
+    let i, j, u, v, c;
+    const len = arr.length;
+    for (i = 0; i < len; i++) {
+      const arrI = arr[i];
+      if (arrI !== 0) {
+        j = result[result.length - 1];
+        if (arr[j] < arrI) {
+          p[i] = j;
+          result.push(i);
+          continue;
         }
-      }
-      if (arrI < arr[result[u]]) {
-        if (u > 0) {
-          p[i] = result[u - 1];
+        u = 0;
+        v = result.length - 1;
+        while (u < v) {
+          c = (u + v) >> 1;
+          if (arr[result[c]] < arrI) {
+            u = c + 1;
+          } else {
+            v = c;
+          }
         }
-        result[u] = i;
+        if (arrI < arr[result[u]]) {
+          if (u > 0) {
+            p[i] = result[u - 1];
+          }
+          result[u] = i;
+        }
       }
     }
+    u = result.length;
+    v = result[u - 1];
+    while (u-- > 0) {
+      result[u] = v;
+      v = p[v];
+    }
+    return result;
   }
-  u = result.length;
-  v = result[u - 1];
-  while (u-- > 0) {
-    result[u] = v;
-    v = p[v];
-  }
-  return result;
 }
