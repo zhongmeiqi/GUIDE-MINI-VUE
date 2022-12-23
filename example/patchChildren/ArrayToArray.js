@@ -189,7 +189,7 @@ const isChange = ref(false);
 // a,b,(c,e),f,g
 // a,b,(e,c,d),f,g
 // d 节点在老的节点中不存在，新的里面存在，所以需要创建
-const prevChildren = [
+/* const prevChildren = [
   h("p", { key: "A" }, "A"),
   h("p", { key: "B" }, "B"),
   h("p", { key: "C" }, "C"),
@@ -206,7 +206,21 @@ const nextChildren = [
   h("p", { key: "D" }, "D"),
   h("p", { key: "F" }, "F"),
   h("p", { key: "G" }, "G"),
-];
+]; */
+
+// fix C节点应该是move 而不是删除之后重新创建的
+const prevChildren=[
+  h("p",{key:"A"},"A"),
+  h("p",{},"C"),
+  h("p",{key:"B"},"B"),
+  h("P",{key:"D"},"D")
+]
+const nextChildren=[
+  h("p",{key:"A"},"A"),
+  h("p",{key:"B"},"B"),
+  h("p",{},"C"),//fix:C被重新创建
+  h("p",{key:"D"},"D"),
+]
 
 export default {
   name: "PatchChildren",
