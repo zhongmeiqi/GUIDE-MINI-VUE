@@ -4,23 +4,41 @@ function createElement(type) {
   return document.createElement(type);
 }
 
-function patchProp(el, key, val) {
+function patchProps(el, key, prevVal, nextVal) {
   const isOn = (key: string) => /^on[A-Z]/.test(key);
   if (isOn(key)) {
     const event = key.slice(2).toLocaleLowerCase();
-    el.addEventListener(event, val);
+    el.addEventListener(event, nextVal);
   } else {
-    el.setAttribute(key, val);
+    if (nextVal === undefined || nextVal === null) {
+      el.removeAttribute(key, nextVal);
+    } else {
+      el.setAttribute(key, nextVal);
+    }
   }
 }
-function insert(el, parent) {
-  parent.append(el);
+function insert(child, parent, anchor) {
+  if (parent) {
+    // parent.append(el);
+    parent.insertBefore(child, anchor || null);
+  }
+}
+function remove(child) {
+  const parent = child.parentNode;
+  if (parent) {
+    parent.removeChild(child);
+  }
+}
+function setElementText(el, text) {
+  el.textContent = text;
 }
 
-const renderer: any = createRenderer({
+export const renderer: any = createRenderer({
   createElement,
-  patchProp,
+  patchProps,
   insert,
+  remove,
+  setElementText,
 });
 
 export function createApp(...args) {
