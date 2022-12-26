@@ -21,6 +21,7 @@ describe("Parse", () => {
       expect(ast.children[0]).toStrictEqual({
         type: NodeTypes.ElEMENT,
         tag: "div",
+        children: [],
       });
     });
   });
@@ -33,7 +34,7 @@ describe("Parse", () => {
       });
     });
   });
-  test.only("hello world", () => {
+  /* test("hello world", () => {
     const ast = baseParse("<div>hi,{{message}}</div>");
 
     expect(ast.children[0]).toStrictEqual({
@@ -50,5 +51,10 @@ describe("Parse", () => {
         },
       ],
     });
+  }); */
+  test("should throw error when lack end tag", () => {
+    expect(() => {
+      baseParse("<div><span></div>");
+    }).toThrow();
   });
 });

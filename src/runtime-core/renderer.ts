@@ -7,7 +7,13 @@ import { queueJobs } from "./scheduler";
 import { Fragment, Text } from "./vnode";
 
 export function createRenderer(options) {
-  const { createElement, patchProps, insert, remove, setElementText } = options;
+  const {
+    createElement: hostCreateElement,
+    patchProps: hostPatchProp,
+    insert: hostInsert,
+    remove: hostRemove,
+    setElementText: hostSetElementText,
+  } = options;
   function render(vnode, container) {
     patch(null, vnode, container, null, null);
   }
@@ -166,12 +172,12 @@ export function createRenderer(options) {
       }
       if (c1 !== c2) {
         debugger;
-        setElementText(container, c2);
+        hostSetElementText(container, c2);
       }
     } else {
       // new array
       if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
-        setElementText(container, "");
+        hostSetElementText(container, "");
         mountChildren(c2, container, parentComponent, anchor);
       } else {
         // array diff array
@@ -232,7 +238,7 @@ export function createRenderer(options) {
       } else if (i > e2) {
         // 4、老的比新的长 删除
         while (i <= e1) {
-          remove(c1[i].el);
+          hostRemove(c1[i].el);
           i++;
         }
       } else {
@@ -258,7 +264,7 @@ export function createRenderer(options) {
         for (let i = s1; i <= e1; i++) {
           const prevChild = c1[i];
           if (patched >= toBePatched) {
-            remove(prevChild.el);
+            hostRemove(prevChild.el);
             continue;
           }
 
@@ -274,7 +280,7 @@ export function createRenderer(options) {
             }
           }
           if (newIndex === undefined) {
-            remove(prevChild.el);
+            hostRemove(prevChild.el);
           } else {
             if (newIndex >= maxNewIndexSoFar) {
               maxNewIndexSoFar = newIndex;
@@ -311,7 +317,7 @@ export function createRenderer(options) {
           } else if (moved) {
             if (j < 0 || i !== increasingNewIndexSquence[j]) {
               console.log("移动位置");
-              insert(nextChild.el, container, anchor);
+              hostInsert(nextChild.el, container, anchor);
             } else {
               j--;
             }
@@ -327,7 +333,7 @@ export function createRenderer(options) {
     for (let i = 0; i < children.length; i++) {
       const el = children[i].el;
       // remove
-      remove(el);
+      hostRemove(el);
     }
   }
 
@@ -338,13 +344,13 @@ export function createRenderer(options) {
         const prevProp = oldProps[key];
         const nextProp = newProps[key];
         if (prevProp !== nextProp) {
-          patchProps(el, key, prevProp, nextProp);
+          hostPatchProp(el, key, prevProp, nextProp);
         }
       }
       if (oldProps !== EMPTY_OBJ) {
         for (const key in oldProps) {
           if (!(key in newProps)) {
-            patchProps(el, key, oldProps[key], null);
+            hostPatchProp(el, key, oldProps[key], null);
           }
         }
       }
@@ -362,7 +368,7 @@ export function createRenderer(options) {
 
     // canvas
     // new Element
-    const el = (vnode.el = createElement(vnode.type));
+    const el = (vnode.el = hostCreateElement(vnode.type));
     // string array
     const { children, ShapeFlag } = vnode;
     if (ShapeFlag & ShapeFlags.TEXT_CHILDREN) {
@@ -386,11 +392,11 @@ export function createRenderer(options) {
     } else {
       el.setAttribute(key, val);
     } */
-      patchProps(el, key, null, val);
+      hostPatchProp(el, key, null, val);
     }
     // canvas el.x =10; addChild()
     // container.append(el);
-    insert(el, container);
+    hostInsert(el, container);
   }
 
   // rollup用于 库的打包；webpack 应用的打包

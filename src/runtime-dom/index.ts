@@ -5,6 +5,8 @@ function createElement(type) {
 }
 
 function patchProps(el, key, prevVal, nextVal) {
+  console.log(`PatchProp 设置属性:${key} 值:${nextVal}`);
+  console.log(`key: ${key} 之前的值是:${prevVal}`);
   const isOn = (key: string) => /^on[A-Z]/.test(key);
   if (isOn(key)) {
     const event = key.slice(2).toLocaleLowerCase();

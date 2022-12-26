@@ -1,4 +1,4 @@
-// vue3
+// vue3 ECMAScript
 import  {createApp} from '../../lib/guide-mini-vue.esm.js'
 import {App} from "./App.js"
 

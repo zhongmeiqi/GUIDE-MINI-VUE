@@ -1,5 +1,8 @@
 import { ShapeFlags } from "../shared/ShapeFlags";
-export const Fragment = Symbol("Fragment");
+/* 组件可以没有根标签，内部会将多个标签包含在一个Fragment虚拟元素中
+  好处：减少标签层级，减少内存占用
+*/
+export const Fragment = Symbol("Fragment"); //碎片化节点
 export const Text = Symbol("Text");
 
 export function createVNode(type, props?, children?) {
