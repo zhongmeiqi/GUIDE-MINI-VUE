@@ -91,7 +91,10 @@ export function createRenderer(options) {
           if (!instance.isMounted) {
             console.log("init");
             const { proxy } = instance;
-            const subTree = (instance.subTree = instance.render.call(proxy));
+            const subTree = (instance.subTree = instance.render.call(
+              proxy,
+              proxy
+            ));
             console.log(subTree);
             // vnode=>patch
             // vnode =>element => mountElement(挂载element)
@@ -110,7 +113,7 @@ export function createRenderer(options) {
             }
 
             const { proxy } = instance;
-            const subTree = instance.render.call(proxy);
+            const subTree = instance.render.call(proxy, proxy);
             const prevSubTree = instance.subTree;
             instance.subTree = subTree;
             console.log("current", subTree);
@@ -126,10 +129,11 @@ export function createRenderer(options) {
         }
       );
     }
-    return {
-      createApp: createAppAPI(render),
-    };
   }
+  return {
+    createApp: createAppAPI(render),
+  };
+
   function updateComponentPreRender(instance, nextVNode) {
     instance.vnode = nextVNode;
     instance.next = null;
